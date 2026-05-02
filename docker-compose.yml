@@ -1,0 +1,28 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--maxmemory-policy", "noeviction"]
+
+  api:
+    build: ./api
+    ports:
+      - "3000:3000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - API_KEY=dev-api-key-12345
+    depends_on:
+      - redis
+
+  worker:
+    build: ./worker
+    ports:
+      - "3001:3001"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - METRICS_PORT=3001
+    depends_on:
+      - redis

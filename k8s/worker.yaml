@@ -1,0 +1,69 @@
+# Deployment: runs the Order Worker with health checks and resource limits
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-worker
+  namespace: orders
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: order-worker
+  template:
+    metadata:
+      labels:
+        app: order-worker
+    spec:
+      containers:
+        - name: order-worker
+          image: order-worker:v1
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3001
+          env:
+            - name: REDIS_HOST
+              value: "redis"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: METRICS_PORT
+              value: "3001"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+# Service: exposes Worker metrics for Prometheus scraping
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-worker
+  namespace: orders
+  labels:
+    app: order-worker
+spec:
+  selector:
+    app: order-worker
+  ports:
+    - port: 3001
+      targetPort: 3001
+      name: metrics

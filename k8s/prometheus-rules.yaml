@@ -1,0 +1,27 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: order-alerts
+  namespace: orders
+  labels:
+    release: prometheus-stack
+spec:
+  groups:
+    - name: order-processing
+      rules:
+        - alert: HighOrderFailureRate
+          expr: rate(orders_processed_total{status="dead_letter"}[5m]) / rate(orders_processed_total[5m]) > 0.1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "High order failure rate detected"
+            description: "More than 10% of orders are permanently failing over the last 5 minutes."
+        - alert: DeadLetterQueueNotEmpty
+          expr: orders_dlq_size > 0
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Orders in dead-letter queue"
+            description: "There are {{ $value }} orders in the dead-letter queue requiring manual review."

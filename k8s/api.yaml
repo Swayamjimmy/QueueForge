@@ -1,0 +1,72 @@
+# Deployment: runs the Order API with production configuration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-api
+  namespace: orders
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: order-api
+  template:
+    metadata:
+      labels:
+        app: order-api
+    spec:
+      containers:
+        - name: order-api
+          image: order-api:v1
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3000
+          env:
+            - name: REDIS_HOST
+              value: "redis"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: api-key
+                  key: API_KEY
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+# Service: exposes the API within the cluster with labeled ports
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-api
+  namespace: orders
+  labels:
+    app: order-api
+spec:
+  selector:
+    app: order-api
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: http
